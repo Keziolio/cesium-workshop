@@ -1,12 +1,13 @@
 .backdrop {
     display: inline-block;
-    background: rgba(42, 42, 42, 0.7);
+    background: rgba(242, 242, 242, 0.7);
     border-radius: 5px;
     border: 1px solid #444;
     padding: 5px 10px;
     color: #fff;
     line-height: 150%;
     font-size: small;
+    width: 400px;
 }
 
 #heightSliderLabel, #heightValue {
