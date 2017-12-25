@@ -1,12 +1,6 @@
-// Cesium.CesiumWidget is similar to Cesium.Viewer, but
-// is trimmed down.  It is just a widget for the 3D globe;
-// it does not include the animation, imagery selection,
-// and other widgets, nor does it depend on the third-party
-// Knockout library.
-
 var viewer = new Cesium.Viewer('cesiumContainer', {
-    animation: false,
-    timeline: false,
+//    animation: false,
+//    timeline: false,
     infoBox: false,
     sceneModePicker: false,
     selectionIndicator: false
@@ -18,8 +12,7 @@ var terrainProvider = new Cesium.CesiumTerrainProvider({
     requestVertexNormals: true
 });
 viewer.terrainProvider = terrainProvider;
-viewer.scene.globe.enableLighting = false;
-
+viewer.scene.globe.enableLighting = true;
 
 viewer.camera.frustum.fov = Cesium.Math.PI_OVER_TWO
 
@@ -41,16 +34,6 @@ function prendidati(cb) {
     xmlhttp.send();
 }
 
-/*
-<trkpt lat="46.35497272" lon="11.82125153">
-  <ele>2263.0</ele>
-  <speed>9.25</speed>
-  <currentdistance>1442.7388</currentdistance>
-  <timeelapsed>00:10:33</timeelapsed>
-  <time>2017-12-24T14:58:57Z</time>
-</trkpt>
-*/
-
 function parseXML(data) {
     parser = new DOMParser();
     xmlDoc = parser.parseFromString(data, "text/xml");
@@ -64,12 +47,21 @@ function parseXML(data) {
             continue;
         }
 
+        /*
+        <trkpt lat="46.35497272" lon="11.82125153">
+          <ele>2263.0</ele>
+          <speed>9.25</speed>
+          <currentdistance>1442.7388</currentdistance>
+          <timeelapsed>00:10:33</timeelapsed>
+          <time>2017-12-24T14:58:57Z</time>
+        </trkpt>
+        */
         points.push({
             lat: Number(raw[point].getAttribute("lat")),
             lon: Number(raw[point].getAttribute("lon")),
             ele: Number(raw[point].getElementsByTagName("ele")[0].innerHTML),
             speed: Number(raw[point].getElementsByTagName("speed")[0].innerHTML),
-            time: raw[point].getElementsByTagName("time")[0].innerHTML,
+            time: Date.parse(raw[point].getElementsByTagName("time")[0].innerHTML),
             currentdistance: Number(raw[point].getElementsByTagName("currentdistance")[0].innerHTML),
             id: point
         })
@@ -81,173 +73,124 @@ function parseXML(data) {
 prendidati((data) => {
 
     points = parseXML(data);
-
-    line = [];
-
-
-    labels = [];
-    alt = []
-    speed = []
-    alt = []
-
-    points.forEach(function(p) {
-        line.push(p.lon, p.lat, p.ele);
-        labels.push(p.id)
-        speed.push(p.speed * 3.6)
-        alt.push(p.ele)
-    })
-
-    function computeCircle(radius) {
-        var positions = [];
-        for (var i = 0; i < 360; i += 10) {
-            var radians = Cesium.Math.toRadians(i);
-            positions.push(new Cesium.Cartesian2(radius * Math.cos(radians), radius * Math.sin(radians)));
-        }
-        return positions;
-    }
+    var start_time =  Cesium.JulianDate.fromDate(new Date(points[0].time))
+    var stop_time =  Cesium.JulianDate.fromDate(new Date(points[points.length -1].time))
 
 
-    var orangeOutlined = viewer.entities.add({
-        name: 'Orange line with black outline at height and following the surface',
-        /*
-      polyline: {
-        positions: Cesium.Cartesian3.fromDegreesArrayHeights(line),
-        width: 4,
+    //Make sure viewer is at the desired time.
+    viewer.clock.startTime = start_time.clone();
+    viewer.clock.stopTime = stop_time.clone();
+    viewer.clock.currentTime = start_time.clone();
+    viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP; //Loop at the end
+    viewer.clock.multiplier = 1;
 
-        material: new Cesium.PolylineOutlineMaterialProperty({
-          color: Cesium.Color.ORANGE,
-          outlineWidth: 1,
-          outlineColor: Cesium.Color.BLACK
+    //Set timeline to simulation bounds
+    viewer.timeline.zoomTo(start_time, stop_time);
+
+
+
+        line = [];
+        points.forEach(function(p) {
+            line.push(p.lon, p.lat, p.ele);
         })
-    }*/
-        polylineVolume: {
-            positions: Cesium.Cartesian3.fromDegreesArrayHeights(line),
-            shape: computeCircle(6.0),
-            material: Cesium.Color.YELLOW
+
+
+        function computeCircle(radius) {
+            var positions = [];
+            for (var i = 0; i < 360; i += 20) {
+                var radians = Cesium.Math.toRadians(i);
+                positions.push(new Cesium.Cartesian2(radius * Math.cos(radians), radius * Math.sin(radians)));
+            }
+            return positions;
         }
-    });
-    viewer.zoomTo(orangeOutlined);
 
 
-    var map_point = viewer.entities.add({
-        name: 'p',
-        position: Cesium.Cartesian3.fromDegrees(0, 0),
-        point: {
-            pixelSize: 5,
-            color: Cesium.Color.RED,
-            outlineColor: Cesium.Color.RED,
-            outlineWidth: 2
-        },
-    });
+        var orangeOutlined = viewer.entities.add({
+            name: 'Orange line with black outline at height and following the surface',
+            polylineVolume: {
+                positions: Cesium.Cartesian3.fromDegreesArrayHeights(line),
+                shape: computeCircle(3.0),
+                material: Cesium.Color.YELLOW
+            }
+        });
+        //viewer.zoomTo(orangeOutlined);
 
+/*
+        var map_point = viewer.entities.add({
+            name: 'p',
+            position: Cesium.Cartesian3.fromDegrees(0, 0),
+            point: {
+                pixelSize: 5,
+                color: Cesium.Color.RED,
+                outlineColor: Cesium.Color.RED,
+                outlineWidth: 2
+            },
+        });
+        */
 
-    var hoverFunc = function(x, element) {
-        if (element[0]) {
-            var index = element[0]._index;
-            map_point.position = Cesium.Cartesian3.fromDegrees(points[index].lon,
-                points[index].lat, points[index].ele)
-            //
+    function genData() {
+        var property = new Cesium.SampledPositionProperty();
 
+        for (p in points) {
+            var time = Cesium.JulianDate.fromDate(new Date(points[p].time))
+            var position = Cesium.Cartesian3.fromDegrees(points[p].lon, points[p].lat,points[p].ele);
+            property.addSample(time, position);
 
+            //Also create a point for each sample we generate.
+            viewer.entities.add({
+                position: position,
+            });
         }
+        return property;
     }
 
-    window.chartColors = {
-        red: 'rgb(255, 0, 0)',
-        orange: 'rgb(255, 159, 64)',
-        yellow: 'rgb(255, 205, 86)',
-        green: 'rgb(75, 192, 192)',
-        blue: 'rgb(54, 162, 235)',
-        purple: 'rgb(153, 102, 255)',
-        grey: 'rgb(201, 203, 207)'
-    };
+    //Compute the entity position property.
+    var position = genData();
 
-    var config_speed = {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Speed",
-                backgroundColor: window.chartColors.red,
-                borderColor: window.chartColors.red,
-                data: speed,
-                fill: true,
-                pointRadius: 0,
-                showLine: true,
-            }],
+    var entity = viewer.entities.add({
+
+        //Set the entity availability to the same interval as the simulation time.
+        availability: new Cesium.TimeIntervalCollection([new Cesium.TimeInterval({
+            start: start_time,
+            stop: stop_time
+        })]),
+
+        //Use our computed positions
+        position: position,
+
+        //Automatically compute orientation based on position movement.
+        orientation: new Cesium.VelocityOrientationProperty(position),
+
+        ellipsoid : {
+            radii : new Cesium.Cartesian3(10.0, 10.0,10.0),
+            material : Cesium.Color.RED
         },
-        options: {
-            responsive: true,
-            tooltips: {
-                mode: 'index',
-                intersect: false,
-            },
-            hover: {
-                mode: 'nearest',
-                intersect: false,
-                onHover: hoverFunc
-            },
-            scales: {
-                xAxes: [{
-                    display: false,
 
-                }],
-                yAxes: [{
-                    display: true,
+        //Show the path as a pink line sampled in 1 second increments.
+    /*    path: {
+            resolution: 1,
+            material: new Cesium.PolylineGlowMaterialProperty({
+                glowPower: 0.05,
+                color: Cesium.Color.YELLOW
+            }),
+            width: 10
+        }*/
+    });
 
-                }]
-            }
-        }
-    };
 
-    var config_alt = {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Altitude",
-                backgroundColor: window.chartColors.blue,
-                borderColor: window.chartColors.blue,
-                data: alt,
-                fill: true,
-                pointRadius: 0,
-                showLine: true,
-            }],
-        },
-        options: {
-            responsive: true,
-            tooltips: {
-                mode: 'index',
-                intersect: false,
-            },
-            hover: {
-                mode: 'nearest',
-                intersect: false,
-                onHover: hoverFunc
-            },
-            scales: {
-                xAxes: [{
-                    display: false,
 
-                }],
-                yAxes: [{
-                    display: true,
+    viewer.zoomTo(entity);
 
-                }]
-            }
-        }
-    };
-    /*
-      Chart.defaults.global.hover.onHover = function(x) {
-        if(x[0]) {
-          var index = x[0]._index;
-          console.log(index)
-        }
-      };*/
-    var ctx = document.getElementById("speedg").getContext("2d");
-    window.speed = new Chart(ctx, config_speed);
-    var ctx = document.getElementById("altg").getContext("2d");
-    window.altitude = new Chart(ctx, config_alt);
+
+        var graphs = new Graphs(points)
+
+        graphs.onHover(function(index) {
+            //map_point.position = Cesium.Cartesian3.fromDegrees(points[index].lon, points[index].lat, points[index].ele)
+            viewer.clock.currentTime = Cesium.JulianDate.fromDate(new Date(points[index].time)).clone();
+
+        })
+
+        graphs.draw()
 
 
 
