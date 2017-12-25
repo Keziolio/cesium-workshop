@@ -176,7 +176,9 @@ prendidati((data) => {
 
         ellipsoid : {
             radii : new Cesium.Cartesian3(10.0, 10.0,10.0),
-            material : Cesium.Color.RED
+            material : Cesium.Color.RED,
+            shadows: Cesium.ShadowMode.CAST_ONLY
+
         },
 
         //Show the path as a pink line sampled in 1 second increments.
