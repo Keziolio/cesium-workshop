@@ -6,11 +6,21 @@
 
 var viewer = new Cesium.Viewer('cesiumContainer', {
   animation: false,
-  timeline: false
+  timeline: false,
+  infoBox: false,
+  sceneModePicker: false,
+  selectionIndicator: false
 });
 
+var terrainProvider = new Cesium.CesiumTerrainProvider({
+    url : 'https://assets.agi.com/stk-terrain/world',
+    requestWaterMask: true
+});
+viewer.terrainProvider = terrainProvider;
+
+
+
 viewer.camera.frustum.fov =Cesium.Math.PI_OVER_TWO
-console.log(viewer.camera)
 
 
 function prendidati(cb) {
