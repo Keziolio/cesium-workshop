@@ -3,7 +3,9 @@ var viewer = new Cesium.Viewer('cesiumContainer', {
 //    timeline: false,
     infoBox: false,
     sceneModePicker: false,
-    selectionIndicator: false
+    selectionIndicator: false,
+    shadows : true,
+    terrainShadows : Cesium.ShadowMode.ENABLED
 });
 
 var terrainProvider = new Cesium.CesiumTerrainProvider({
@@ -15,6 +17,12 @@ viewer.terrainProvider = terrainProvider;
 viewer.scene.globe.enableLighting = true;
 
 viewer.camera.frustum.fov = Cesium.Math.PI_OVER_TWO
+
+
+var shadowMap = viewer.shadowMap;
+shadowMap.maxmimumDistance = 10000.0;
+shadowMap.softShadows=true;
+
 
 
 function prendidati(cb) {
@@ -110,10 +118,15 @@ prendidati((data) => {
             polylineVolume: {
                 positions: Cesium.Cartesian3.fromDegreesArrayHeights(line),
                 shape: computeCircle(3.0),
-                material: Cesium.Color.YELLOW
+                material: Cesium.Color.YELLOW,
+                shadows: Cesium.ShadowMode.CAST_ONLY
             }
         });
-        //viewer.zoomTo(orangeOutlined);
+
+
+        viewer.zoomTo(orangeOutlined);
+        viewer.shadows = true
+        viewer.terrainShadows = Cesium.ShadowMode.RECEIVE_ONLY;
 
 /*
         var map_point = viewer.entities.add({
@@ -179,7 +192,7 @@ prendidati((data) => {
 
 
 
-    viewer.zoomTo(entity);
+
 
 
         var graphs = new Graphs(points)
