@@ -18,7 +18,7 @@ var terrainProvider = new Cesium.CesiumTerrainProvider({
     requestVertexNormals: true
 });
 viewer.terrainProvider = terrainProvider;
-viewer.scene.globe.enableLighting = true;
+viewer.scene.globe.enableLighting = false;
 
 
 viewer.camera.frustum.fov = Cesium.Math.PI_OVER_TWO
