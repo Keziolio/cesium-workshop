@@ -5,39 +5,40 @@
 // Knockout library.
 
 var viewer = new Cesium.Viewer('cesiumContainer', {
-  animation: false,
-  timeline: false,
-  infoBox: false,
-  sceneModePicker: false,
-  selectionIndicator: false
+    animation: false,
+    timeline: false,
+    infoBox: false,
+    sceneModePicker: false,
+    selectionIndicator: false
 });
 
 var terrainProvider = new Cesium.CesiumTerrainProvider({
-    url : 'https://assets.agi.com/stk-terrain/world',
-    requestWaterMask: true
+    url: 'https://assets.agi.com/stk-terrain/world',
+    requestWaterMask: true,
+    requestVertexNormals: true
 });
 viewer.terrainProvider = terrainProvider;
+viewer.scene.globe.enableLighting = true;
 
 
-
-viewer.camera.frustum.fov =Cesium.Math.PI_OVER_TWO
+viewer.camera.frustum.fov = Cesium.Math.PI_OVER_TWO
 
 
 function prendidati(cb) {
-  var xmlhttp;
-  if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
-    xmlhttp = new XMLHttpRequest();
-  }
-
-  xmlhttp.onreadystatechange = function() {
-    if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
-      cb(xmlhttp.responseText);
-    } else {
-
+    var xmlhttp;
+    if (window.XMLHttpRequest) { // code for IE7+, Firefox, Chrome, Opera, Safari
+        xmlhttp = new XMLHttpRequest();
     }
-  }
-  xmlhttp.open("GET", "Source/data.gpx", true);
-  xmlhttp.send();
+
+    xmlhttp.onreadystatechange = function() {
+        if (xmlhttp.readyState == 4 && xmlhttp.status == 200) {
+            cb(xmlhttp.responseText);
+        } else {
+
+        }
+    }
+    xmlhttp.open("GET", "Source/data.gpx", true);
+    xmlhttp.send();
 }
 
 /*
@@ -51,186 +52,202 @@ function prendidati(cb) {
 */
 
 function parseXML(data) {
-  parser = new DOMParser();
-  xmlDoc = parser.parseFromString(data, "text/xml");
+    parser = new DOMParser();
+    xmlDoc = parser.parseFromString(data, "text/xml");
 
-  var raw = xmlDoc.getElementsByTagName("trkpt");
-  var points = []
+    var raw = xmlDoc.getElementsByTagName("trkpt");
+    var points = []
 
-  for (point in raw) {
+    for (point in raw) {
 
-    if (!raw[point].attributes) {
-      continue;
+        if (!raw[point].attributes) {
+            continue;
+        }
+
+        points.push({
+            lat: Number(raw[point].getAttribute("lat")),
+            lon: Number(raw[point].getAttribute("lon")),
+            ele: Number(raw[point].getElementsByTagName("ele")[0].innerHTML),
+            speed: Number(raw[point].getElementsByTagName("speed")[0].innerHTML),
+            time: raw[point].getElementsByTagName("time")[0].innerHTML,
+            currentdistance: Number(raw[point].getElementsByTagName("currentdistance")[0].innerHTML),
+            id: point
+        })
     }
 
-    points.push({
-      lat: Number(raw[point].getAttribute("lat")),
-      lon: Number(raw[point].getAttribute("lon")),
-      ele: Number(raw[point].getElementsByTagName("ele")[0].innerHTML),
-      speed: Number(raw[point].getElementsByTagName("speed")[0].innerHTML),
-      time: raw[point].getElementsByTagName("time")[0].innerHTML,
-      currentdistance: Number(raw[point].getElementsByTagName("currentdistance")[0].innerHTML),
-      id: point
-    })
-  }
-
-  return points;
+    return points;
 }
 
 prendidati((data) => {
 
-  points = parseXML(data);
+    points = parseXML(data);
 
-  line = [];
+    line = [];
 
 
-  labels = [];
-  alt = []
-  speed = []
-  alt = []
+    labels = [];
+    alt = []
+    speed = []
+    alt = []
 
-  points.forEach(function(p) {
-    line.push(p.lon, p.lat, p.ele);
-    labels.push(p.id)
-    speed.push(p.speed * 3, 6)
-    alt.push(p.ele)
-  })
+    points.forEach(function(p) {
+        line.push(p.lon, p.lat, p.ele);
+        labels.push(p.id)
+        speed.push(p.speed * 3.6)
+        alt.push(p.ele)
+    })
+
+    function computeCircle(radius) {
+        var positions = [];
+        for (var i = 0; i < 360; i += 10) {
+            var radians = Cesium.Math.toRadians(i);
+            positions.push(new Cesium.Cartesian2(radius * Math.cos(radians), radius * Math.sin(radians)));
+        }
+        return positions;
+    }
 
 
     var orangeOutlined = viewer.entities.add({
-      name: 'Orange line with black outline at height and following the surface',
+        name: 'Orange line with black outline at height and following the surface',
+        /*
       polyline: {
         positions: Cesium.Cartesian3.fromDegreesArrayHeights(line),
-        width: 5,
+        width: 4,
+
         material: new Cesium.PolylineOutlineMaterialProperty({
           color: Cesium.Color.ORANGE,
-          outlineWidth: 2,
+          outlineWidth: 1,
           outlineColor: Cesium.Color.BLACK
         })
-      }
+    }*/
+        polylineVolume: {
+            positions: Cesium.Cartesian3.fromDegreesArrayHeights(line),
+            shape: computeCircle(6.0),
+            material: Cesium.Color.YELLOW
+        }
     });
     viewer.zoomTo(orangeOutlined);
 
 
-  var map_point = viewer.entities.add({
-    name: 'p',
-    position: Cesium.Cartesian3.fromDegrees(0,0),
-    point: {
-      pixelSize: 5,
-      color: Cesium.Color.RED,
-      outlineColor: Cesium.Color.RED,
-      outlineWidth: 2
-    },
-  });
+    var map_point = viewer.entities.add({
+        name: 'p',
+        position: Cesium.Cartesian3.fromDegrees(0, 0),
+        point: {
+            pixelSize: 5,
+            color: Cesium.Color.RED,
+            outlineColor: Cesium.Color.RED,
+            outlineWidth: 2
+        },
+    });
 
 
-  var hoverFunc = function(x, element) {
-    if (element[0]) {
-      var index = element[0]._index;
-      map_point.position = Cesium.Cartesian3.fromDegrees(points[index].lon,
-        points[index].lat, points[index].ele)
-      //
+    var hoverFunc = function(x, element) {
+        if (element[0]) {
+            var index = element[0]._index;
+            map_point.position = Cesium.Cartesian3.fromDegrees(points[index].lon,
+                points[index].lat, points[index].ele)
+            //
 
 
+        }
     }
-  }
 
-  window.chartColors = {
-    red: 'rgb(255, 0, 0)',
-    orange: 'rgb(255, 159, 64)',
-    yellow: 'rgb(255, 205, 86)',
-    green: 'rgb(75, 192, 192)',
-    blue: 'rgb(54, 162, 235)',
-    purple: 'rgb(153, 102, 255)',
-    grey: 'rgb(201, 203, 207)'
-  };
+    window.chartColors = {
+        red: 'rgb(255, 0, 0)',
+        orange: 'rgb(255, 159, 64)',
+        yellow: 'rgb(255, 205, 86)',
+        green: 'rgb(75, 192, 192)',
+        blue: 'rgb(54, 162, 235)',
+        purple: 'rgb(153, 102, 255)',
+        grey: 'rgb(201, 203, 207)'
+    };
 
-  var config_speed = {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: "Speed",
-        backgroundColor: window.chartColors.red,
-        borderColor: window.chartColors.red,
-        data: speed,
-        fill: true,
-        pointRadius: 0,
-        showLine: true,
-      }],
-    },
-    options: {
-      responsive: true,
-      tooltips: {
-        mode: 'index',
-        intersect: false,
-      },
-      hover: {
-        mode: 'nearest',
-        intersect: false,
-        onHover: hoverFunc
-      },
-      scales: {
-        xAxes: [{
-          display: false,
+    var config_speed = {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Speed",
+                backgroundColor: window.chartColors.red,
+                borderColor: window.chartColors.red,
+                data: speed,
+                fill: true,
+                pointRadius: 0,
+                showLine: true,
+            }],
+        },
+        options: {
+            responsive: true,
+            tooltips: {
+                mode: 'index',
+                intersect: false,
+            },
+            hover: {
+                mode: 'nearest',
+                intersect: false,
+                onHover: hoverFunc
+            },
+            scales: {
+                xAxes: [{
+                    display: false,
 
-        }],
-        yAxes: [{
-          display: true,
+                }],
+                yAxes: [{
+                    display: true,
 
-        }]
-      }
-    }
-  };
+                }]
+            }
+        }
+    };
 
-  var config_alt = {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: "Altitude",
-        backgroundColor: window.chartColors.blue,
-        borderColor: window.chartColors.blue,
-        data: alt,
-        fill: true,
-        pointRadius: 0,
-        showLine: true,
-      }],
-    },
-    options: {
-      responsive: true,
-      tooltips: {
-        mode: 'index',
-        intersect: false,
-      },
-      hover: {
-        mode: 'nearest',
-        intersect: false,
-        onHover: hoverFunc
-      },
-      scales: {
-        xAxes: [{
-          display: false,
+    var config_alt = {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Altitude",
+                backgroundColor: window.chartColors.blue,
+                borderColor: window.chartColors.blue,
+                data: alt,
+                fill: true,
+                pointRadius: 0,
+                showLine: true,
+            }],
+        },
+        options: {
+            responsive: true,
+            tooltips: {
+                mode: 'index',
+                intersect: false,
+            },
+            hover: {
+                mode: 'nearest',
+                intersect: false,
+                onHover: hoverFunc
+            },
+            scales: {
+                xAxes: [{
+                    display: false,
 
-        }],
-        yAxes: [{
-          display: true,
+                }],
+                yAxes: [{
+                    display: true,
 
-        }]
-      }
-    }
-  };
-  /*
-    Chart.defaults.global.hover.onHover = function(x) {
-      if(x[0]) {
-        var index = x[0]._index;
-        console.log(index)
-      }
-    };*/
-  var ctx = document.getElementById("speedg").getContext("2d");
-  window.speed = new Chart(ctx, config_speed);
-  var ctx = document.getElementById("altg").getContext("2d");
-  window.altitude = new Chart(ctx, config_alt);
+                }]
+            }
+        }
+    };
+    /*
+      Chart.defaults.global.hover.onHover = function(x) {
+        if(x[0]) {
+          var index = x[0]._index;
+          console.log(index)
+        }
+      };*/
+    var ctx = document.getElementById("speedg").getContext("2d");
+    window.speed = new Chart(ctx, config_speed);
+    var ctx = document.getElementById("altg").getContext("2d");
+    window.altitude = new Chart(ctx, config_alt);
 
 
 
